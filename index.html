@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Player</title>
+</head>
+<body>
+  <div id="role-selection">
+    <h1>Select Role</h1>
+    <button id="select-main">Main</button>
+    <button id="select-controller">Controller</button>
+  </div>
+
+  <div id="main-page" style="display: none;">
+    <h1>Now Playing</h1>
+    <audio id="audio" controls></audio>
+  </div>
+
+  <div id="controller-page" style="display: none;">
+    <h1>Music Controller</h1>
+    <button id="play">Play</button>
+    <button id="pause">Pause</button>
+    <button id="next">Next</button>
+    <button id="prev">Previous</button>
+  </div>
+
+  <script>
+    const socket = new WebSocket('https://plaid-smooth-neon.glitch.me');
+    const roleSelection = document.getElementById('role-selection');
+    const mainPage = document.getElementById('main-page');
+    const controllerPage = document.getElementById('controller-page');
+    const audio = document.getElementById('audio');
+
+    let role = null;
+    let playlist = ['Christmas Canon Karaoke Lyric Video Best Quality No Skipping Instrumental Trans-Siberian Orchestra.mp3', 'Magic Day.mp3'];
+    let currentIndex = 0;
+
+    socket.addEventListener('open', () => {
+      console.log('Connected to WebSocket server');
+    });
+
+    document.getElementById('select-main').addEventListener('click', () => {
+      role = 'main';
+      roleSelection.style.display = 'none';
+      mainPage.style.display = 'block';
+
+      socket.send(JSON.stringify({ type: 'register', role: 'main' }));
+
+      socket.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.action === 'play') {
+          audio.src = playlist[currentIndex];
+          audio.play();
+        } else if (data.action === 'pause') {
+          audio.pause();
+        } else if (data.action === 'next') {
+          currentIndex = (currentIndex + 1) % playlist.length;
+          audio.src = playlist[currentIndex];
+          audio.play();
+        } else if (data.action === 'prev') {
+          currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+          audio.src = playlist[currentIndex];
+          audio.play();
+        }
+      });
+    });
+
+    document.getElementById('select-controller').addEventListener('click', () => {
+      role = 'controller';
+      roleSelection.style.display = 'none';
+      controllerPage.style.display = 'block';
+
+      socket.send(JSON.stringify({ type: 'register', role: 'controller' }));
+
+      const sendAction = (action) => {
+        socket.send(JSON.stringify({ type: 'control', action }));
+      };
+
+      document.getElementById('play').addEventListener('click', () => sendAction('play'));
+      document.getElementById('pause').addEventListener('click', () => sendAction('pause'));
+      document.getElementById('next').addEventListener('click', () => sendAction('next'));
+      document.getElementById('prev').addEventListener('click', () => sendAction('prev'));
+    });
+  </script>
+</body>
+</html>

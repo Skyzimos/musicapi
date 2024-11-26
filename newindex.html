@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js/dist/tesseract.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #333;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        video {
+            border: 3px solid #444;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            width: 50%;
+            position: relative;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .crosshair div {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .crosshair .vertical {
+            width: 2px;
+            height: 100px;
+        }
+
+        .crosshair .horizontal {
+            height: 2px;
+            width: 100px;
+        }
+
+        p {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #555;
+        }
+
+        p strong {
+            color: #111;
+        }
+
+        #result {
+            color: #0078d4;
+            font-weight: bold;
+        }
+
+        .button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #005a99;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Ticket Scanner</h1>
+    <div style="position: relative;">
+        <video id="camera" autoplay playsinline></video>
+        <div class="crosshair">
+            <div class="vertical"></div>
+            <div class="horizontal"></div>
+        </div>
+    </div>
+    <canvas id="snapshot" style="display: none;"></canvas>
+    <p><strong>Ticket Number:</strong> <span id="result">Scanning...</span></p>
+    <button id="rescanBtn" class="button">Rescan</button>
+    <button id="submitBtn" class="button">Submit</button>
+
+    <script>
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('snapshot');
+        const context = canvas.getContext('2d');
+        const resultDisplay = document.getElementById('result');
+        const rescanBtn = document.getElementById('rescanBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        let scanning = true;
+
+        const socket = new WebSocket('https://plaid-smooth-neon.glitch.me');
+
+        socket.addEventListener('open', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        // Store recognized numbers for comparison
+        let detectedNumbers = {};
+        let scanInterval = 300; // Milliseconds between scans
+        let finalNumber;
+
+        // Extract text using Tesseract.js
+        async function extractTicketNumber(canvas) {
+            try {
+                const imageData = canvas.toDataURL('image/png');
+                const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
+                    tessedit_char_whitelist: '0123456789'
+                });
+
+                // Extract all 6-digit numbers
+                const matches = (text.match(/\b\d{6}\b/g) || []).filter(num => num.startsWith('8'));
+                return matches;
+            } catch (err) {
+                console.log(err);
+                return [];
+            }
+        }
+
+        // Track occurrences of numbers to find the most common
+        function trackOccurrences(numbers) {
+            for (const num of numbers) {
+                if (!detectedNumbers[num]) detectedNumbers[num] = 0;
+                detectedNumbers[num]++;
+            }
+        }
+
+        // Get the most common number
+        function getMostCommonNumber() {
+            return Object.entries(detectedNumbers).reduce(
+                (acc, [num, count]) => (count > acc[1] ? [num, count] : acc),
+                ['', 0]
+            )[0];
+        }
+
+        // Continuously scan the video feed
+        async function scanForTicket() {
+            try {
+                if (!scanning) return;
+
+                // Capture the current frame from the video feed
+                const scale = 0.5; // Scale down for faster processing
+                canvas.width = video.videoWidth * scale;
+                canvas.height = video.videoHeight * scale;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Perform OCR and look for ticket numbers
+                const ticketNumbers = await extractTicketNumber(canvas);
+                if (ticketNumbers.length) {
+                    trackOccurrences(ticketNumbers);
+                    const mostCommonNumber = getMostCommonNumber();
+                    if (mostCommonNumber) {
+                        finalNumber = mostCommonNumber;
+                        resultDisplay.textContent = mostCommonNumber;
+                        console.log('Ticket number found:', mostCommonNumber);
+                        scanning = false; // Stop scanning once the number is determined
+                    }
+                }
+
+                // Retry after a delay
+                setTimeout(scanForTicket, scanInterval);
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        // Start the camera and scanning
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                scanForTicket();
+            })
+            .catch(err => {
+                console.error('Error accessing camera:', err);
+                alert('Unable to access the camera. Please check your permissions.');
+            });
+
+        submitBtn.addEventListener('click', () => {
+            socket.send(JSON.stringify({ type: 'ticket_scan', payload: finalNumber }));
+            resultDisplay.textContent = 'Sent!';
+
+            setTimeout(() => {
+                detectedNumbers = {};
+                resultDisplay.textContent = 'Scanning...';
+                scanning = true;
+                finalNumber = null;
+                scanForTicket(); // Restart the scan
+            }, 1500);
+        })
+
+        rescanBtn.addEventListener('click', () => {
+            // Reset previous detected numbers and the result display
+            detectedNumbers = {};
+            resultDisplay.textContent = 'Scanning...';
+            scanning = true;
+            finalNumber = null;
+            scanForTicket(); // Restart the scan
+        });
+    </script>
+</body>
+
+</html>
