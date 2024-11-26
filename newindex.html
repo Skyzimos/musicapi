@@ -145,6 +145,7 @@
         let detectedNumbers = {};
         let scanInterval = 300; // Milliseconds between scans
         let finalNumber;
+        let previousFinalNumber;
 
         // Extract text using Tesseract.js
         async function extractTicketNumber(canvas) {
@@ -196,10 +197,13 @@
                     trackOccurrences(ticketNumbers);
                     const mostCommonNumber = getMostCommonNumber();
                     if (mostCommonNumber) {
-                        finalNumber = mostCommonNumber;
-                        resultDisplay.textContent = mostCommonNumber;
-                        console.log('Ticket number found:', mostCommonNumber);
-                        scanning = false; // Stop scanning once the number is determined
+                        if (previousFinalNumber && previousFinalNumber !== mostCommonNumber) {
+                            previousFinalNumber = finalNumber;
+                            finalNumber = mostCommonNumber;
+                            resultDisplay.textContent = mostCommonNumber;
+                            console.log('Ticket number found:', mostCommonNumber);
+                            scanning = false; // Stop scanning once the number is determined
+                        }
                     }
                 }
 
@@ -211,9 +215,11 @@
         }
 
         // Start the camera and scanning
-        navigator.mediaDevices.getUserMedia({ video: {
-            facingMode: 'environment'
-        } })
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment'
+            }
+        })
             .then(stream => {
                 video.srcObject = stream;
                 scanForTicket();
