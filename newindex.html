@@ -211,7 +211,9 @@
         }
 
         // Start the camera and scanning
-        navigator.mediaDevices.getUserMedia({ video: true })
+        navigator.mediaDevices.getUserMedia({ video: true, facingMode: {
+      exact: 'environment'
+    } })
             .then(stream => {
                 video.srcObject = stream;
                 scanForTicket();
