@@ -118,12 +118,24 @@
         const rescanBtn = document.getElementById('rescanBtn');
         const submitBtn = document.getElementById('submitBtn');
         let scanning = true;
+        let current_name_and_amount;
 
         const socket = new WebSocket('https://plaid-smooth-neon.glitch.me');
 
         socket.addEventListener('open', () => {
             console.log('Connected to WebSocket server');
         });
+
+        socket.send(JSON.stringify({ type: 'register', role: 'scanner' }));
+
+        socket.addEventListener('message', (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'new') {
+                current_name_and_amount = data.data;
+                console.log(current_name_and_amount)
+            }
+        })
 
         // Store recognized numbers for comparison
         let detectedNumbers = {};
