@@ -145,7 +145,7 @@
         let detectedNumbers = {};
         let scanInterval = 300; // Milliseconds between scans
         let finalNumber;
-        let previousFinalNumber;
+        let previousFinalNumber = null;
 
         // Extract text using Tesseract.js
         async function extractTicketNumber(canvas) {
@@ -197,12 +197,14 @@
                     trackOccurrences(ticketNumbers);
                     const mostCommonNumber = getMostCommonNumber();
                     if (mostCommonNumber) {
-                        if (previousFinalNumber && previousFinalNumber !== mostCommonNumber) {
+                        if (previousFinalNumber !== null || previousFinalNumber !== mostCommonNumber) {
                             previousFinalNumber = finalNumber;
                             finalNumber = mostCommonNumber;
                             resultDisplay.textContent = mostCommonNumber;
                             console.log('Ticket number found:', mostCommonNumber);
                             scanning = false; // Stop scanning once the number is determined
+                        } else {
+                            console.log('same as other number')
                         }
                     }
                 }
