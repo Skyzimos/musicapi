@@ -140,6 +140,14 @@
                 current_name_and_amount = data.data;
                 console.log(current_name_and_amount)
                 amountperson.innerHTML = `Amount: ${current_name_and_amount.current_amount}, Person: ${current_name_and_amount.current_name}`
+            } else if (data.type === 'ticket_not_found') {
+                resultDisplay.textContent = 'Ticket Not Found';
+                resultDisplay.style.color = 'red';
+
+                setTimeout(() => {
+                    resultDisplay.style.color = '#0078d4';
+                    resultDisplay.textContent = 'Scanning...';
+                }, 5000);
             }
         })
 
