@@ -109,6 +109,7 @@
     <canvas id="snapshot" style="display: none;"></canvas>
     <p><strong>Ticket Number:</strong> <span id="result">Scanning...</span></p>
     <button id="rescanBtn" class="button">+ Add Another</button>
+    <button id="redoscanBtn" class="button">Redo Scan</button>
     <button id="submitBtn" class="button">Check Ticket Info</button>
 
     <script>
@@ -118,6 +119,7 @@
         const resultDisplay = document.getElementById('result');
         const rescanBtn = document.getElementById('rescanBtn');
         const submitBtn = document.getElementById('submitBtn');
+        const redoscanBtn = document.getElementById('redoscanBtn');
         let amountperson = document.getElementById('amountperson');
         let scanning = true;
         let current_name_and_amount = null;
@@ -230,6 +232,13 @@
                 console.error('Error accessing camera:', err);
                 alert('Unable to access the camera. Please check your permissions.');
             });
+
+            redoscanBtn.addEventListener('click', () => {
+                resultDisplay.textContent = 'Scanning...';
+                scanning = true;
+                finalNumber = null;
+                scanForTicket(); // Restart the scan
+            })
 
         submitBtn.addEventListener('click', () => {
             socket.send(JSON.stringify({ type: 'ticket_scan', payload: finalNumber }));
